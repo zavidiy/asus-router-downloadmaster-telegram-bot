@@ -28,4 +28,4 @@ dist-ssr
 .webextrc.*
 
 # dotenv environment variables file
-.env*
+.env
