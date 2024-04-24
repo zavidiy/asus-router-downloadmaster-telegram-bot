@@ -17,15 +17,25 @@ export class MainApi {
             directurl: '/downloadmaster/task.asp',
         };
 
-        const res = await fetch(`${this._url}/check.asp`, {
+        const response = await fetch(`${this._url}/check.asp`, {
             method: 'POST',
             headers: this.headers,
             body: new URLSearchParams(payload),
         });
 
-        this.headers.set('Cookie', res.headers.get('set-cookie')!);
+        if (!response.ok) {
+            throw new Error(`Login failed with status: '${response.statusText}'`);
+        }
 
-        return res;
+        const cookie = response.headers.get('set-cookie');
+
+        if (!cookie) {
+            throw new Error(`Can not get AuthToken`);
+        }
+
+        this.headers.set('Cookie',cookie);
+
+        return response;
     }
 
     async addTask({url}: AddTaskData) {
@@ -36,9 +46,15 @@ export class MainApi {
             usb_dm_url: url,
         });
 
-        return await fetch(`${this._url}/downloadmaster/dm_apply.cgi?${urlSearchParams.toString()}`, {
+        const response = await fetch(`${this._url}/downloadmaster/dm_apply.cgi?${urlSearchParams.toString()}`, {
             method: 'GET',
             headers: this.headers,
         });
+
+        if (!response.ok) {
+            throw new Error(`Failed to add task with status: '${response.statusText}'`);
+        }
+
+        return response;
     }
 }

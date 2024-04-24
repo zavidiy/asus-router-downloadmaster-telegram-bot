@@ -1,65 +1,55 @@
 import * as dotenv from 'dotenv';
 import {Telegraf} from 'telegraf';
 import {message} from 'telegraf/filters';
+import {getApiURL, getLoginData} from './utils';
 import {MainApi} from './MainApi/MainApi';
 
 dotenv.config();
 
-async function bootstrap() {
-    const botToken = process.env.BOT_TOKEN;
+const botToken = process.env.BOT_TOKEN;
 
-    if (!botToken) {
-        throw new Error('Environment variable "BOT_TOKEN" is not set');
+if (!botToken) {
+    throw new Error('Environment variable "BOT_TOKEN" is not set');
+}
+
+const bot = new Telegraf(botToken);
+
+bot.on(message(), async (ctx) => {
+    const {text: message} = ctx;
+
+    if (!message) {
+        return;
     }
 
-    const url = process.env.ROUTER_API_URL;
+    const replyParameters = {reply_parameters: {message_id: ctx.message.message_id}};
 
-    if (!url) {
-        throw new Error('Environment variable "ROUTER_API_URL" is not set');
+    try {
+        const mainApi = new MainApi(getApiURL());
+
+        await mainApi.login(getLoginData());
+
+        await mainApi.addTask({url: message});
+
+        ctx.reply('Task added', replyParameters);
+    } catch (error: any) {
+        ctx.reply(error.toString(), replyParameters);
     }
+})
 
-    const username = process.env.USER_NAME;
-
-    if (!username) {
-        throw new Error('Environment variable "DOWNLOADMASTER_USERNAME" is not set');
-    }
-
-    const password = process.env.USER_PASSWORD;
-
-    if (!password) {
-        throw new Error('Environment variable "DOWNLOADMASTER_PASSWORD" is not set');
-    }
-
-    const mainApi = new MainApi(url);
-    const bot = new Telegraf(botToken);
-
-    bot.on(message(), async (ctx) => {
-        const {text: message} = ctx;
-
-        if (!message) {
-            return;
-        }
-
-        const replyParameters = {reply_parameters: {message_id: ctx.message.message_id}};
-
-        try {
-            await mainApi.login({
-                username: username,
-                password: password,
-            });
-
-            await mainApi.addTask({url: message});
-
-            ctx.reply('Task added', replyParameters);
-        } catch (e: any) {
-            ctx.reply(e.toString(), replyParameters);
-        }
-    })
-
+if (process.env.ENV === 'dev') {
     bot.launch();
 
     process.once('SIGINT', () => bot.stop('SIGINT'))
     process.once('SIGTERM', () => bot.stop('SIGTERM'))
-}
+} else {
+    module.exports.bot = async function (event: any) {
+        const message = JSON.parse(event.body);
 
-bootstrap();
+        await bot.handleUpdate(message);
+
+        return {
+            statusCode: 200,
+            body: '',
+        };
+    }
+}
