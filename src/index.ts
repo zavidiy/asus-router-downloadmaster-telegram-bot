@@ -1,8 +1,9 @@
 import * as dotenv from 'dotenv';
 import {Telegraf} from 'telegraf';
 import {message} from 'telegraf/filters';
-import {getApiURL, getLoginData} from './utils';
+import {getApiURL, getLoginData, sendErrorMessage, sendMessage} from './utils';
 import {MainApi} from './MainApi/MainApi';
+import {ReplyTextType} from './config';
 
 dotenv.config();
 
@@ -21,18 +22,24 @@ bot.on(message(), async (ctx) => {
         return;
     }
 
-    const replyParameters = {reply_parameters: {message_id: ctx.message.message_id}};
+    const {message: {message_id: messageId}} = ctx;
+
+    const mainApi = new MainApi(getApiURL());
 
     try {
-        const mainApi = new MainApi(getApiURL());
-
         await mainApi.login(getLoginData());
 
         await mainApi.addTask({url: message});
 
-        ctx.reply('Task added', replyParameters);
+        sendMessage(ctx, ReplyTextType.TASK_ADDED, messageId);
     } catch (error: any) {
-        ctx.reply(error.toString(), replyParameters);
+        sendErrorMessage(ctx, error, messageId);
+    } finally {
+        try {
+            await mainApi.logout();
+        } catch (error: any) {
+            sendErrorMessage(ctx, error, messageId);
+        }
     }
 })
 
