@@ -4,6 +4,7 @@ import {message} from 'telegraf/filters';
 import {getApiURL, getLoginData, sendErrorMessage, sendMessage} from './utils';
 import {MainApi} from './MainApi/MainApi';
 import {ReplyTextType} from './config';
+import dedent from 'ts-dedent';
 
 dotenv.config();
 
@@ -14,6 +15,40 @@ if (!botToken) {
 }
 
 const bot = new Telegraf(botToken);
+const mainApi = new MainApi(getApiURL());
+
+bot.command('all', async (ctx) => {
+    try {
+        await mainApi.login(getLoginData());
+
+        const response = await mainApi.getTasks();
+
+        let reply = '';
+        const lastIndex = response.length - 1;
+
+        response.forEach(({name, downloaded, size, status}, index) => {
+            reply += dedent(`
+            #${index + 1} ${name}
+            ${size} (${Number((downloaded * 100).toFixed(2))}%)
+            ${status}
+            `);
+
+            if (index !== lastIndex) {
+                reply += '\n\n';
+            }
+        })
+
+        sendMessage(ctx, reply);
+    } catch (error: any) {
+        sendErrorMessage(ctx, error);
+    } finally {
+        try {
+            await mainApi.logout();
+        } catch (error: any) {
+            sendErrorMessage(ctx, error);
+        }
+    }
+})
 
 bot.on(message(), async (ctx) => {
     const {text: message} = ctx;
@@ -23,8 +58,6 @@ bot.on(message(), async (ctx) => {
     }
 
     const {message: {message_id: messageId}} = ctx;
-
-    const mainApi = new MainApi(getApiURL());
 
     try {
         await mainApi.login(getLoginData());
