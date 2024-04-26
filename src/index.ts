@@ -1,10 +1,11 @@
 import * as dotenv from 'dotenv';
 import {Telegraf} from 'telegraf';
 import {message} from 'telegraf/filters';
-import {getApiURL, getLoginData, sendErrorMessage, sendMessage} from './utils';
+import {getApiURL, getLoginData, sendMessage} from './utils';
 import {MainApi} from './MainApi/MainApi';
 import {ReplyTextType} from './config';
 import dedent from 'ts-dedent';
+import {AuthorizedSessionExecutor} from './AuthorizedSessionExecutor';
 
 dotenv.config();
 
@@ -16,11 +17,10 @@ if (!botToken) {
 
 const bot = new Telegraf(botToken);
 const mainApi = new MainApi(getApiURL());
+const authorizedSessionExecutor = new AuthorizedSessionExecutor(mainApi, getLoginData());
 
 bot.command('all', async (ctx) => {
-    try {
-        await mainApi.login(getLoginData());
-
+    authorizedSessionExecutor.addTask(async (ctx) => {
         const response = await mainApi.getTasks();
 
         let reply = '';
@@ -39,15 +39,7 @@ bot.command('all', async (ctx) => {
         })
 
         sendMessage(ctx, reply);
-    } catch (error: any) {
-        sendErrorMessage(ctx, error);
-    } finally {
-        try {
-            await mainApi.logout();
-        } catch (error: any) {
-            sendErrorMessage(ctx, error);
-        }
-    }
+    }, ctx)
 })
 
 bot.on(message(), async (ctx) => {
@@ -59,21 +51,13 @@ bot.on(message(), async (ctx) => {
 
     const {message: {message_id: messageId}} = ctx;
 
-    try {
+    authorizedSessionExecutor.addTask(async (ctx) => {
         await mainApi.login(getLoginData());
 
         await mainApi.addTask({url: message});
 
         sendMessage(ctx, ReplyTextType.TASK_ADDED, messageId);
-    } catch (error: any) {
-        sendErrorMessage(ctx, error, messageId);
-    } finally {
-        try {
-            await mainApi.logout();
-        } catch (error: any) {
-            sendErrorMessage(ctx, error, messageId);
-        }
-    }
+    }, ctx)
 })
 
 if (process.env.ENV === 'dev') {
