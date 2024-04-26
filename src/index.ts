@@ -2,7 +2,7 @@ import * as dotenv from 'dotenv';
 import {Telegraf} from 'telegraf';
 import {message} from 'telegraf/filters';
 import {getApiURL, getLoginData, sendMessage} from './utils';
-import {MainApi} from './MainApi/MainApi';
+import {MainApi, TaskStatus} from './MainApi/MainApi';
 import {ReplyTextType} from './config';
 import dedent from 'ts-dedent';
 import {AuthorizedSessionExecutor} from './AuthorizedSessionExecutor';
@@ -19,26 +19,38 @@ const bot = new Telegraf(botToken);
 const mainApi = new MainApi(getApiURL());
 const authorizedSessionExecutor = new AuthorizedSessionExecutor(mainApi, getLoginData());
 
-bot.command('all', async (ctx) => {
-    authorizedSessionExecutor.addTask(async (ctx) => {
-        const response = await mainApi.getTasks();
+function getStatusesText(statuses: TaskStatus[]) {
+    let reply = '';
+    const lastIndex = statuses.length - 1;
 
-        let reply = '';
-        const lastIndex = response.length - 1;
-
-        response.forEach(({name, downloaded, size, status}, index) => {
-            reply += dedent(`
+    statuses.forEach(({name, downloaded, size, status}, index) => {
+        reply += dedent(`
             #${index + 1} ${name}
-            ${size} (${Number((downloaded * 100).toFixed(2))}%)
-            ${status}
+            ${size}
+            ${status} ${status === 'Downloading' ? `: ${Number((downloaded * 100).toFixed(2))}%` : ''}
             `);
 
-            if (index !== lastIndex) {
-                reply += '\n\n';
-            }
-        })
+        if (index !== lastIndex) {
+            reply += '\n\n';
+        }
+    })
 
-        sendMessage(ctx, reply);
+    return reply || 'No tasks found';
+}
+
+bot.command('all', async (ctx) => {
+    authorizedSessionExecutor.addTask(async (ctx) => {
+        const statuses = await mainApi.getTasks();
+
+        sendMessage(ctx, getStatusesText(statuses));
+    }, ctx)
+})
+
+bot.command('active', async (ctx) => {
+    authorizedSessionExecutor.addTask(async (ctx) => {
+        const statuses = await mainApi.getTasks('Downloading', 'notbegin');
+
+        sendMessage(ctx, getStatusesText(statuses));
     }, ctx)
 })
 

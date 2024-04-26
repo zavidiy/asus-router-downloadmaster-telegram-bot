@@ -32,25 +32,43 @@ export class AuthorizedSessionExecutor {
     }
 
     private async runTaskWithAuthorization() {
-        console.log('Running task with authorization');
+        this.updateTask();
+
+        if(!this._currentTask) {
+            return;
+        }
+
+        const {context} = this._currentTask;
 
         try {
             await this._mainApi.login(this._loginData);
+        } catch(error: any) {
+            sendErrorMessage(context, error);
+        }
 
-            await this.runTask();
+        try {
+            await this.runTask(false);
         } catch (error: any) {
-            sendErrorMessage(this._currentTask!.context, error);
+            sendErrorMessage(context, error);
         } finally {
             try {
                 await this._mainApi.logout();
             } catch (error: any) {
-                sendErrorMessage(this._currentTask!.context, error);
+                sendErrorMessage(context, error);
             }
+        }
+
+        if (this._tasks.length > 0) {
+            this.runTaskWithAuthorization();
+        } else {
+            this._currentTask = undefined;
         }
     }
 
-    private async runTask() {
-        this._currentTask = this._tasks.shift();
+    private async runTask(updateTask = true) {
+        if (updateTask) {
+            this.updateTask();
+        }
 
         if (!this._currentTask) {
             return;
@@ -61,5 +79,9 @@ export class AuthorizedSessionExecutor {
         await task(context);
 
         await this.runTask();
+    }
+
+    private updateTask() {
+        this._currentTask = this._tasks.shift();
     }
 }

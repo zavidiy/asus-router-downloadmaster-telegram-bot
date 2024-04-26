@@ -1,7 +1,7 @@
 import {toBase64} from './utils';
 import {AddTaskData, LoginData} from './types';
 
-export type TaskStatusType = 'Finished' | 'Downloading';
+export type TaskStatusType = 'Finished' | 'Downloading' | 'notbegin';
 
 export type TaskStatus = {
     name: string;
@@ -67,7 +67,7 @@ export class MainApi {
         return response;
     }
 
-    async getTasks(): Promise<TaskStatus[]> {
+    async getTasks(...statusTypes: TaskStatusType[]): Promise<TaskStatus[]> {
         const urlSearchParams = new URLSearchParams({
             action_mode: 'All'
         });
@@ -83,22 +83,26 @@ export class MainApi {
 
         const arrayBuffer = await response.arrayBuffer();
 
-        const str = new TextDecoder().decode(arrayBuffer);
+        const rawData = new TextDecoder().decode(arrayBuffer).split('\n,');
 
-        const array: TaskStatus[] = str.split('\n,').map((item) => {
-            const parse = JSON.parse(item);
+        const statuses: TaskStatus[] = [];
 
-            const [, name, downloaded, size, status] = parse;
+        for (const data of rawData) {
+            const [, name, downloaded, size, status] = JSON.parse(data);
 
-            return {
+            if (statusTypes.length > 0 && !statusTypes.includes(status)) {
+                continue;
+            }
+
+            statuses.push({
                 name,
                 downloaded,
                 size,
                 status
-            };
-        });
+            });
+        }
 
-        return array;
+        return statuses;
     }
 
     async logout() {
