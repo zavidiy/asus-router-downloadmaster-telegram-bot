@@ -40,21 +40,27 @@ export class AuthorizedSessionExecutor {
 
         const {context} = this._currentTask;
 
+        let loginSucceed = false;
+
         try {
             await this._mainApi.login(this._loginData);
+
+            loginSucceed = true;
         } catch(error: any) {
             sendErrorMessage(context, error);
         }
 
-        try {
-            await this.runTask(false);
-        } catch (error: any) {
-            sendErrorMessage(context, error);
-        } finally {
+        if(loginSucceed) {
             try {
-                await this._mainApi.logout();
+                await this.runTask(false);
             } catch (error: any) {
                 sendErrorMessage(context, error);
+            } finally {
+                try {
+                    await this._mainApi.logout();
+                } catch (error: any) {
+                    sendErrorMessage(context, error);
+                }
             }
         }
 

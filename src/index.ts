@@ -1,10 +1,9 @@
 import * as dotenv from 'dotenv';
 import {Telegraf} from 'telegraf';
 import {message} from 'telegraf/filters';
-import {getApiURL, getLoginData, sendMessage} from './utils';
-import {MainApi, TaskStatus} from './MainApi/MainApi';
+import {getApiURL, getLoginData, getStatusesText, sendMessage} from './utils';
+import {MainApi} from './MainApi/MainApi';
 import {ReplyTextType} from './config';
-import dedent from 'ts-dedent';
 import {AuthorizedSessionExecutor} from './AuthorizedSessionExecutor';
 
 dotenv.config();
@@ -19,38 +18,21 @@ const bot = new Telegraf(botToken);
 const mainApi = new MainApi(getApiURL());
 const authorizedSessionExecutor = new AuthorizedSessionExecutor(mainApi, getLoginData());
 
-function getStatusesText(statuses: TaskStatus[]) {
-    let reply = '';
-    const lastIndex = statuses.length - 1;
-
-    statuses.forEach(({name, downloaded, size, status}, index) => {
-        reply += dedent(`
-            #${index + 1} ${name}
-            ${size}
-            ${status} ${status === 'Downloading' ? `: ${Number((downloaded * 100).toFixed(2))}%` : ''}
-            `);
-
-        if (index !== lastIndex) {
-            reply += '\n\n';
-        }
-    })
-
-    return reply || 'No tasks found';
-}
-
 bot.command('all', async (ctx) => {
     authorizedSessionExecutor.addTask(async (ctx) => {
-        const statuses = await mainApi.getTasks();
-
-        sendMessage(ctx, getStatusesText(statuses));
+        sendMessage(ctx, getStatusesText(await mainApi.getTasks()));
     }, ctx)
 })
 
 bot.command('active', async (ctx) => {
     authorizedSessionExecutor.addTask(async (ctx) => {
-        const statuses = await mainApi.getTasks('Downloading', 'notbegin');
+        sendMessage(ctx, getStatusesText(await mainApi.getTasks('Downloading', 'notbegin')));
+    }, ctx)
+})
 
-        sendMessage(ctx, getStatusesText(statuses));
+bot.command('finished', async (ctx) => {
+    authorizedSessionExecutor.addTask(async (ctx) => {
+        sendMessage(ctx, getStatusesText(await mainApi.getTasks('Finished')));
     }, ctx)
 })
 
@@ -61,14 +43,12 @@ bot.on(message(), async (ctx) => {
         return;
     }
 
-    const {message: {message_id: messageId}} = ctx;
-
     authorizedSessionExecutor.addTask(async (ctx) => {
         await mainApi.login(getLoginData());
 
         await mainApi.addTask({url: message});
 
-        sendMessage(ctx, ReplyTextType.TASK_ADDED, messageId);
+        sendMessage(ctx, ReplyTextType.TASK_ADDED);
     }, ctx)
 })
 
