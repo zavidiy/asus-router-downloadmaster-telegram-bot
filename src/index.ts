@@ -1,9 +1,10 @@
 import * as dotenv from 'dotenv';
 import {Telegraf} from 'telegraf';
 import {message} from 'telegraf/filters';
-import {getApiURL, getLoginData, sendErrorMessage, sendMessage} from './utils';
+import {getApiURL, getLoginData, getStatusesText, sendMessage} from './utils';
 import {MainApi} from './MainApi/MainApi';
 import {ReplyTextType} from './config';
+import {AuthorizedSessionExecutor} from './AuthorizedSessionExecutor';
 
 dotenv.config();
 
@@ -14,6 +15,26 @@ if (!botToken) {
 }
 
 const bot = new Telegraf(botToken);
+const mainApi = new MainApi(getApiURL());
+const authorizedSessionExecutor = new AuthorizedSessionExecutor(mainApi, getLoginData());
+
+bot.command('all', async (ctx) => {
+    authorizedSessionExecutor.addTask(async (ctx) => {
+        sendMessage(ctx, getStatusesText(await mainApi.getTasks()));
+    }, ctx)
+})
+
+bot.command('active', async (ctx) => {
+    authorizedSessionExecutor.addTask(async (ctx) => {
+        sendMessage(ctx, getStatusesText(await mainApi.getTasks('Downloading', 'notbegin')));
+    }, ctx)
+})
+
+bot.command('finished', async (ctx) => {
+    authorizedSessionExecutor.addTask(async (ctx) => {
+        sendMessage(ctx, getStatusesText(await mainApi.getTasks('Finished')));
+    }, ctx)
+})
 
 bot.on(message(), async (ctx) => {
     const {text: message} = ctx;
@@ -22,25 +43,13 @@ bot.on(message(), async (ctx) => {
         return;
     }
 
-    const {message: {message_id: messageId}} = ctx;
-
-    const mainApi = new MainApi(getApiURL());
-
-    try {
+    authorizedSessionExecutor.addTask(async (ctx) => {
         await mainApi.login(getLoginData());
 
         await mainApi.addTask({url: message});
 
-        sendMessage(ctx, ReplyTextType.TASK_ADDED, messageId);
-    } catch (error: any) {
-        sendErrorMessage(ctx, error, messageId);
-    } finally {
-        try {
-            await mainApi.logout();
-        } catch (error: any) {
-            sendErrorMessage(ctx, error, messageId);
-        }
-    }
+        sendMessage(ctx, ReplyTextType.TASK_ADDED);
+    }, ctx)
 })
 
 if (process.env.ENV === 'dev') {

@@ -1,6 +1,15 @@
 import {toBase64} from './utils';
 import {AddTaskData, LoginData} from './types';
 
+export type TaskStatusType = 'Finished' | 'Downloading' | 'notbegin';
+
+export type TaskStatus = {
+    name: string;
+    downloaded: number;
+    size: number;
+    status: TaskStatusType;
+}
+
 export class MainApi {
     private headers: Headers = new Headers({
         'Content-type': 'application/x-www-form-urlencoded',
@@ -56,6 +65,44 @@ export class MainApi {
         }
 
         return response;
+    }
+
+    async getTasks(...statusTypes: TaskStatusType[]): Promise<TaskStatus[]> {
+        const urlSearchParams = new URLSearchParams({
+            action_mode: 'All'
+        });
+
+        const response = await fetch(`${this._url}/downloadmaster/dm_print_status.cgi?${urlSearchParams.toString()}`, {
+            method: 'GET',
+            headers: this.headers,
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to get tasks with status: '${response.statusText}'.`);
+        }
+
+        const arrayBuffer = await response.arrayBuffer();
+
+        const rawData = new TextDecoder().decode(arrayBuffer).split('\n,');
+
+        const statuses: TaskStatus[] = [];
+
+        for (const data of rawData) {
+            const [, name, downloaded, size, status] = JSON.parse(data);
+
+            if (statusTypes.length > 0 && !statusTypes.includes(status)) {
+                continue;
+            }
+
+            statuses.push({
+                name,
+                downloaded,
+                size,
+                status
+            });
+        }
+
+        return statuses;
     }
 
     async logout() {

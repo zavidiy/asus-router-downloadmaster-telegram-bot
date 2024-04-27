@@ -1,5 +1,7 @@
 import {LoginData} from './MainApi/types';
 import {Context} from 'telegraf';
+import {ExtraReplyMessage} from 'telegraf/typings/telegram-types';
+import {TaskStatus, TaskStatusType} from './MainApi/MainApi';
 
 export function getApiURL() {
     const url = process.env.ROUTER_API_URL;
@@ -29,10 +31,70 @@ export function getLoginData(): LoginData {
     }
 }
 
-export function sendErrorMessage(context: Context, error: any, replyToMessageId?: number) {
-    sendMessage(context, `❌ ${error.toString()}`, replyToMessageId);
+export function sendErrorMessage(context: Context, error: any) {
+    sendMessage(context, `❌ <b>${error.toString()}</b>`);
 }
 
-export function sendMessage(context: Context, text: string, replyToMessageId?: number) {
-    context.reply(text, replyToMessageId ? {reply_parameters: {message_id: replyToMessageId}} : undefined);
+export function sendMessage(context: Context, text: string) {
+    let extra: ExtraReplyMessage = {
+        parse_mode: 'HTML',
+    };
+
+    if (context.message) {
+        extra = {
+            ...extra,
+            reply_parameters: {
+                ...extra.reply_parameters,
+                message_id: context.message?.message_id
+            }
+        }
+    }
+
+    context.reply(text, extra);
+}
+
+export function getStatusIcon(status: TaskStatusType) {
+    switch (status) {
+        case 'Downloading':
+            return '⏬';
+        case 'notbegin':
+            return '⏩';
+        default:
+            return '✅';
+    }
+}
+
+export function getStatusesText(statuses: TaskStatus[]) {
+    let reply = '';
+    const lastIndex = statuses.length - 1;
+
+    statuses.forEach(({name, downloaded, size, status}, index) => {
+        reply += `#${index + 1} <b>${name}</b>\n`;
+
+        if (status !== 'notbegin') {
+            reply += `<i>${size}</i>\n`
+        }
+
+        reply += getStatusText();
+
+        if (index !== lastIndex) {
+            reply += '\n\n';
+        }
+
+        function getStatusText() {
+            const statusIcon = getStatusIcon(status);
+
+            let text = `<b>${statusIcon} ${status}`;
+
+            if (status === 'Downloading') {
+                const percentage = (downloaded * 100).toFixed(1);
+
+                text += ` - ${percentage}%`
+            }
+
+            return `${text}</b>\n`;
+        }
+    })
+
+    return reply || 'No tasks found';
 }
