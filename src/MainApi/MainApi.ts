@@ -67,7 +67,7 @@ export class MainApi {
         return response;
     }
 
-    async getTasks(...statusTypes: TaskStatusType[]): Promise<TaskStatus[]> {
+    async getTasks(filter?: (t: TaskStatus) => boolean): Promise<TaskStatus[]> {
         const urlSearchParams = new URLSearchParams({
             action_mode: 'All'
         });
@@ -90,16 +90,18 @@ export class MainApi {
         for (const data of rawData) {
             const [, name, downloaded, size, status] = JSON.parse(data);
 
-            if (statusTypes.length > 0 && !statusTypes.includes(status)) {
-                continue;
-            }
-
-            statuses.push({
+            const taskStatus = {
                 name,
                 downloaded,
                 size,
                 status
-            });
+            };
+
+            if (filter && !filter(taskStatus)) {
+                continue;
+            }
+
+            statuses.push(taskStatus);
         }
 
         return statuses;

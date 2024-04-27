@@ -1,10 +1,11 @@
 import * as dotenv from 'dotenv';
 import {Telegraf} from 'telegraf';
 import {message} from 'telegraf/filters';
-import {getApiURL, getLoginData, getStatusesText, sendMessage} from './utils';
+import {getApiURL, getLoginData, getStatusesText, isMagnetLink, sendMessage} from './utils';
 import {MainApi} from './MainApi/MainApi';
 import {ReplyTextType} from './config';
 import {AuthorizedSessionExecutor} from './AuthorizedSessionExecutor';
+import {getFilterByName, getFilterByStatus} from './MainApi/utils';
 
 dotenv.config();
 
@@ -26,13 +27,15 @@ bot.command('all', async (ctx) => {
 
 bot.command('active', async (ctx) => {
     authorizedSessionExecutor.addTask(async (ctx) => {
-        sendMessage(ctx, getStatusesText(await mainApi.getTasks('Downloading', 'notbegin')));
+        const tasks = await mainApi.getTasks(getFilterByStatus('Downloading', 'notbegin'));
+
+        sendMessage(ctx, getStatusesText(tasks));
     }, ctx)
 })
 
 bot.command('finished', async (ctx) => {
     authorizedSessionExecutor.addTask(async (ctx) => {
-        sendMessage(ctx, getStatusesText(await mainApi.getTasks('Finished')));
+        sendMessage(ctx, getStatusesText(await mainApi.getTasks(getFilterByStatus('Finished'))));
     }, ctx)
 })
 
@@ -43,13 +46,19 @@ bot.on(message(), async (ctx) => {
         return;
     }
 
-    authorizedSessionExecutor.addTask(async (ctx) => {
-        await mainApi.login(getLoginData());
+    if (isMagnetLink(message)) {
+        authorizedSessionExecutor.addTask(async (ctx) => {
+            await mainApi.addTask({url: message});
 
-        await mainApi.addTask({url: message});
+            sendMessage(ctx, ReplyTextType.TASK_ADDED);
+        }, ctx)
+    } else {
+        authorizedSessionExecutor.addTask(async (ctx) => {
+            const tasks = await mainApi.getTasks(getFilterByName(message));
 
-        sendMessage(ctx, ReplyTextType.TASK_ADDED);
-    }, ctx)
+            sendMessage(ctx, getStatusesText(tasks));
+        }, ctx)
+    }
 })
 
 if (process.env.ENV === 'dev') {

@@ -31,6 +31,12 @@ export function getLoginData(): LoginData {
     }
 }
 
+export function isMagnetLink(text: string): boolean {
+    const magnetRegex = /magnet:\?xt=urn:[a-z0-9]+:[a-h.0-9]{32,40}(&dn=[^&]+)*(&tr=[^&]+)*(&xl=[^&]+)*/i;
+
+    return magnetRegex.test(text);
+}
+
 export function sendErrorMessage(context: Context, error: any) {
     sendMessage(context, `❌ <b>${error.toString()}</b>`);
 }
@@ -57,10 +63,15 @@ export function getStatusIcon(status: TaskStatusType) {
     switch (status) {
         case 'Downloading':
             return '⏬';
-        case 'notbegin':
-            return '⏩';
-        default:
+
+        case 'Finished':
             return '✅';
+
+        case "notbegin":
+            return '⏩';
+
+        default:
+            return '❔';
     }
 }
 
@@ -78,7 +89,7 @@ export function getStatusesText(statuses: TaskStatus[]) {
         reply += getStatusText();
 
         if (index !== lastIndex) {
-            reply += '\n\n';
+            reply += '\n';
         }
 
         function getStatusText() {
