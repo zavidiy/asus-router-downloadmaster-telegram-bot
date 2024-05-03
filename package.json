@@ -5,8 +5,10 @@
   "main": "index.js",
   "type": "commonjs",
   "scripts": {
-    "dev": "tsc && node dist/index.js",
-    "build": "tsc"
+    "build:clean": "rimraf dist",
+    "build": "npm run build:clean && tsc",
+    "dev": "npm run build && node dist/index.js",
+    "build:function": "npm run build && cp package.json dist/ && cross-zip -r asus_router_downloadmaster_telegram_bot.zip dist"
   },
   "keywords": [],
   "author": "",
@@ -18,6 +20,8 @@
   },
   "devDependencies": {
     "@types/node": "^20.12.7",
+    "cross-zip-cli": "^1.0.0",
+    "rimraf": "^5.0.5",
     "typescript": "^5.4.5"
   }
 }

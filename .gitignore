@@ -29,3 +29,6 @@ dist-ssr
 
 # dotenv environment variables file
 .env
+
+# builded zip archive
+dist.zip
