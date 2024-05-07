@@ -8,7 +8,7 @@
     "build:clean": "rimraf dist",
     "build": "npm run build:clean && tsc",
     "dev": "npm run build && node dist/index.js",
-    "build:function": "npm run build && cp package.json dist/ && cross-zip -r asus_router_downloadmaster_telegram_bot.zip dist"
+    "build:function": "npm run build && cp package.json dist/ && cd ./dist && cross-zip . dist && mv dist.zip ../"
   },
   "keywords": [],
   "author": "",
