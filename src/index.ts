@@ -1,11 +1,17 @@
 import * as dotenv from 'dotenv';
-import {Telegraf} from 'telegraf';
-import {message} from 'telegraf/filters';
-import {getApiURL, getLoginData, getStatusesText, isMagnetLink, sendMessage} from './utils';
+import {Markup, Telegraf} from 'telegraf';
+import {getApiURL, getLoginData, getTaskInfoText, getTasksInfoText, sendErrorMessage, sendMessage} from './utils';
 import {MainApi} from './MainApi/MainApi';
-import {ReplyTextType} from './config';
+import {
+    MAGNET_LINK_COMMAND_REG_EXP,
+    TASK_DETAILS_COMMAND_REG_EXP,
+    TASK_REMOVE_COMMAND_PREFIX,
+    TASK_REMOVE_COMMAND_REG_EXP
+} from './config';
 import {AuthorizedSessionExecutor} from './AuthorizedSessionExecutor';
-import {getFilterByName, getFilterByStatus} from './MainApi/utils';
+import {getFilterById, getFilterByName, getFilterByStatus} from './MainApi/utils';
+import {ReplyTextType} from './types';
+import {message} from 'telegraf/filters';
 
 dotenv.config();
 
@@ -21,44 +27,83 @@ const authorizedSessionExecutor = new AuthorizedSessionExecutor(mainApi, getLogi
 
 bot.command('all', async (ctx) => {
     authorizedSessionExecutor.addTask(async (ctx) => {
-        sendMessage(ctx, getStatusesText(await mainApi.getTasks()));
+        sendMessage(ctx, getTasksInfoText(await mainApi.getTasksInfo()));
     }, ctx)
 })
 
 bot.command('active', async (ctx) => {
     authorizedSessionExecutor.addTask(async (ctx) => {
-        const tasks = await mainApi.getTasks(getFilterByStatus('Downloading', 'notbegin'));
+        const tasks = await mainApi.getTasksInfo(getFilterByStatus('Downloading', 'notbegin'));
 
-        sendMessage(ctx, getStatusesText(tasks));
+        sendMessage(ctx, getTasksInfoText(tasks));
     }, ctx)
 })
 
 bot.command('finished', async (ctx) => {
     authorizedSessionExecutor.addTask(async (ctx) => {
-        sendMessage(ctx, getStatusesText(await mainApi.getTasks(getFilterByStatus('Finished'))));
+        sendMessage(ctx, getTasksInfoText(await mainApi.getTasksInfo(getFilterByStatus('Finished'))));
     }, ctx)
 })
+
+bot.hears(MAGNET_LINK_COMMAND_REG_EXP, async (ctx) => {
+    const url = ctx.match[1];
+
+    authorizedSessionExecutor.addTask(async (ctx) => {
+        await mainApi.addTask({url: url});
+
+        sendMessage(ctx, ReplyTextType.TASK_ADDED);
+    }, ctx)
+});
+
+bot.hears(TASK_DETAILS_COMMAND_REG_EXP, async (ctx) => {
+    const id = ctx.match[1];
+
+    authorizedSessionExecutor.addTask(async (ctx) => {
+        const taskInfos = await mainApi.getTasksInfo(getFilterById(id));
+
+        const taskInfo = taskInfos.at(-1);
+
+        if (taskInfo === undefined) {
+            sendErrorMessage(ctx, `Could not find task with id: ${id}`);
+
+            return;
+        }
+
+        const taskInfoText = getTaskInfoText(taskInfo, false);
+
+        sendMessage(ctx, taskInfoText, {
+            ...Markup.inlineKeyboard([
+                Markup.button.callback('Remove task', `${TASK_REMOVE_COMMAND_PREFIX}${id}`),
+            ])
+        });
+    }, ctx)
+});
+
+bot.action(TASK_REMOVE_COMMAND_REG_EXP, (ctx) => {
+        const id = ctx.match[1];
+
+        authorizedSessionExecutor.addTask(async (ctx) => {
+            await mainApi.removeTask(id);
+
+            sendMessage(ctx, ReplyTextType.TASK_REMOVED);
+        }, ctx);
+    }
+)
 
 bot.on(message(), async (ctx) => {
     const {text: message} = ctx;
 
     if (!message) {
+        sendErrorMessage(ctx, 'Message is empty');
+
         return;
     }
 
-    if (isMagnetLink(message)) {
-        authorizedSessionExecutor.addTask(async (ctx) => {
-            await mainApi.addTask({url: message});
+    authorizedSessionExecutor.addTask(async (ctx) => {
+        const tasks = await mainApi.getTasksInfo(getFilterByName(message));
 
-            sendMessage(ctx, ReplyTextType.TASK_ADDED);
-        }, ctx)
-    } else {
-        authorizedSessionExecutor.addTask(async (ctx) => {
-            const tasks = await mainApi.getTasks(getFilterByName(message));
-
-            sendMessage(ctx, getStatusesText(tasks));
-        }, ctx)
-    }
+        sendMessage(ctx, getTasksInfoText(tasks));
+    }, ctx)
 })
 
 if (process.env.ENV === 'dev') {

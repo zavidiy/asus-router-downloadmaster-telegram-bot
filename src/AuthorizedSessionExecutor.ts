@@ -47,7 +47,7 @@ export class AuthorizedSessionExecutor {
 
             loginSucceed = true;
         } catch(error: any) {
-            sendErrorMessage(context, error);
+            sendErrorMessage(context, `Can not login with error:\n${error}`);
         }
 
         if(loginSucceed) {

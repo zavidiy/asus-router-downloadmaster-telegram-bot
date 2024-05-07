@@ -3,7 +3,8 @@ import {AddTaskData, LoginData} from './types';
 
 export type TaskStatusType = 'Finished' | 'Downloading' | 'notbegin';
 
-export type TaskStatus = {
+export type TaskInfo = {
+    id: string;
     name: string;
     downloaded: number;
     size: number;
@@ -67,7 +68,27 @@ export class MainApi {
         return response;
     }
 
-    async getTasks(filter?: (t: TaskStatus) => boolean): Promise<TaskStatus[]> {
+    async removeTask(id: string) {
+        const urlSearchParams = new URLSearchParams({
+            action_mode: 'DM_CTRL',
+            dm_ctrl: 'cancel',
+            task_id: id,
+            download_type: 'BT'
+        });
+
+        const response = await fetch(`${this._url}/downloadmaster/dm_apply.cgi?${urlSearchParams.toString()}`, {
+            method: 'GET',
+            headers: this.headers,
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to remove task with status: '${response.statusText}'.`);
+        }
+
+        return response;
+    }
+
+    async getTasksInfo(filter?: (t: TaskInfo) => boolean): Promise<TaskInfo[]> {
         const urlSearchParams = new URLSearchParams({
             action_mode: 'All'
         });
@@ -85,12 +106,13 @@ export class MainApi {
 
         const rawData = new TextDecoder().decode(arrayBuffer).split('\n,');
 
-        const statuses: TaskStatus[] = [];
+        const statuses: TaskInfo[] = [];
 
         for (const data of rawData) {
-            const [, name, downloaded, size, status] = JSON.parse(data);
+            const [id, name, downloaded, size, status] = JSON.parse(data);
 
             const taskStatus = {
+                id,
                 name,
                 downloaded,
                 size,
