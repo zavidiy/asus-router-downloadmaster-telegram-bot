@@ -18,7 +18,7 @@ export class AuthorizedSessionExecutor {
     constructor(private readonly _mainApi: MainApi, private readonly _loginData: LoginData) {
     }
 
-    addTask(task: AuthorizedSessionTask, context: Context) {
+    addNewTask(task: AuthorizedSessionTask, context: Context) {
         this._tasks.push({
             task: task,
             context: context
@@ -28,13 +28,15 @@ export class AuthorizedSessionExecutor {
             return;
         }
 
-        this.runTaskWithAuthorization();
+        this.runTasksWithAuthorization();
     }
 
-    private async runTaskWithAuthorization() {
+    private async runTasksWithAuthorization() {
+        console.log('Run tasks with authorization');
+
         this.updateTask();
 
-        if(!this._currentTask) {
+        if (!this._currentTask) {
             return;
         }
 
@@ -43,51 +45,58 @@ export class AuthorizedSessionExecutor {
         let loginSucceed = false;
 
         try {
+            console.log('Login');
             await this._mainApi.login(this._loginData);
 
             loginSucceed = true;
-        } catch(error: any) {
+        } catch (error: any) {
             sendErrorMessage(context, `Can not login with error:\n${error}`);
         }
 
-        if(loginSucceed) {
+        if (loginSucceed) {
             try {
                 await this.runTask(false);
             } catch (error: any) {
                 sendErrorMessage(context, error);
             } finally {
                 try {
+                    console.log('Logout');
                     await this._mainApi.logout();
                 } catch (error: any) {
-                    sendErrorMessage(context, error);
+                    sendErrorMessage(context, `Can not logout with error:\n${error}`);
                 }
             }
         }
 
-        if (this._tasks.length > 0) {
-            this.runTaskWithAuthorization();
-        } else {
-            this._currentTask = undefined;
-        }
+        this._currentTask = undefined;
     }
 
     private async runTask(updateTask = true) {
+        console.log(`Run task`);
+
         if (updateTask) {
             this.updateTask();
         }
 
         if (!this._currentTask) {
+            console.log('No tasks');
             return;
         }
 
         const {task, context} = this._currentTask;
 
+        console.log('Run task');
+
         await task(context);
+
+        console.log('Task done');
 
         await this.runTask();
     }
 
     private updateTask() {
         this._currentTask = this._tasks.shift();
+
+        console.log('Update task - ', this._currentTask !== undefined);
     }
 }

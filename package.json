@@ -2,11 +2,10 @@
   "name": "asus_router_downloadmaster_telegram_bot",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
-  "type": "commonjs",
+  "type": "module",
   "scripts": {
     "build:clean": "rimraf dist",
-    "build": "npm run build:clean && tsc",
+    "build": "npm run build:clean && tsc && tsc-esm-fix --target='target/esnext' --tsconfig tsconfig.json",
     "dev": "npm run build && node dist/index.js",
     "build:function": "npm run build && cp package.json dist/ && cd ./dist && cross-zip . dist && mv dist.zip ../"
   },
@@ -14,12 +13,17 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@cspell/dynamic-import": "^8.8.4",
     "dotenv": "^16.4.5",
+    "parse-torrent": "^5.0.0",
     "telegraf": "^4.16.3",
-    "ts-dedent": "^2.2.0"
+    "ts-dedent": "^2.2.0",
+    "tsc-esm-fix": "^2.20.27",
+    "webtorrent": "^2.3.6"
   },
   "devDependencies": {
     "@types/node": "^20.12.7",
+    "@types/webtorrent": "^0.109.8",
     "cross-zip-cli": "^1.0.0",
     "rimraf": "^5.0.5",
     "typescript": "^5.4.5"

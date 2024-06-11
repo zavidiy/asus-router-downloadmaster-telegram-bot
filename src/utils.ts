@@ -3,6 +3,7 @@ import {Context} from 'telegraf';
 import {ExtraReplyMessage} from 'telegraf/typings/telegram-types';
 import {TaskInfo, TaskStatusType} from './MainApi/MainApi';
 import {TASK_DETAILS_COMMAND_PREFIX} from './config';
+import WebTorrent from 'webtorrent';
 
 export function getApiURL() {
     const url = process.env.ROUTER_API_URL;
@@ -32,14 +33,65 @@ export function getLoginData(): LoginData {
     }
 }
 
-export function isMagnetLink(text: string): boolean {
-    const magnetRegex = /magnet:\?xt=urn:[a-z0-9]+:[a-h.0-9]{32,40}(&dn=[^&]+)*(&tr=[^&]+)*(&xl=[^&]+)*/i;
+export function getTorrentNameFromUrlAsync(url: string) {
+    return new Promise<string>((resolve, reject) => {
+        const web = new WebTorrent();
 
-    return magnetRegex.test(text);
+        const timeout = setTimeout(() => {
+            destroyClient();
+
+            reject('Timeout for getting torrent name');
+        }, 30000);
+
+        web.on('error', (error) => {
+            clearOperationTimeout();
+
+            destroyClient();
+
+            reject(error);
+        });
+
+        web.add(url, ({name}) => {
+            console.log('Web', name);
+
+            clearOperationTimeout();
+
+            destroyClient();
+
+            resolve(name);
+        });
+
+        function clearOperationTimeout() {
+            clearTimeout(timeout);
+        }
+
+        function destroyClient() {
+            web.destroy();
+        }
+    })
 }
 
 export function sendErrorMessage(context: Context, error: any) {
     sendMessage(context, `❌ <b>${error.toString()}</b>`);
+}
+
+export async function retryAttempt(action: (attemptsCount: number, maxAttemptsCount: number) => Promise<boolean>,
+                                   delayBetweenAttempts: number,
+                                   maxAttemptsCount: number,
+                                   attemptsCount: number = 0) {
+    console.log(`Retry attempt `, attemptsCount);
+
+    if (await action(attemptsCount, maxAttemptsCount)) {
+        return Promise.resolve();
+    }
+
+    if (++attemptsCount >= maxAttemptsCount) {
+        return Promise.reject('Max attempts count reached');
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, delayBetweenAttempts));
+
+    return await retryAttempt(action, delayBetweenAttempts, maxAttemptsCount, attemptsCount);
 }
 
 export function sendMessage(context: Context, text: string, extra: ExtraReplyMessage = {}) {
