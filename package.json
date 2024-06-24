@@ -7,15 +7,14 @@
     "build:clean": "rimraf dist",
     "build": "npm run build:clean && tsc && tsc-esm-fix --target='target/esnext' --tsconfig tsconfig.json",
     "dev": "npm run build && node dist/index.js",
-    "build:function": "npm run build && cp package.json dist/ && cd ./dist && cross-zip . dist && mv dist.zip ../",
     "test": "jest"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@cspell/dynamic-import": "^8.8.4",
     "dotenv": "^16.4.5",
+    "express": "^4.19.2",
     "parse-torrent": "^5.0.0",
     "telegraf": "^4.16.3",
     "ts-dedent": "^2.2.0",
@@ -23,10 +22,10 @@
     "webtorrent": "^2.3.6"
   },
   "devDependencies": {
+    "@types/express": "^4.17.21",
     "@types/jest": "^29.5.12",
     "@types/node": "^20.12.7",
     "@types/webtorrent": "^0.109.8",
-    "cross-zip-cli": "^1.0.0",
     "jest": "^29.7.0",
     "rimraf": "^5.0.5",
     "typescript": "^5.4.5"
