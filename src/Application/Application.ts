@@ -1,6 +1,6 @@
 import {Context, Markup, Telegraf} from 'telegraf';
-import {MainApi} from './MainApi/MainApi';
-import {AuthorizedSessionExecutor, AuthorizedSessionTask} from './AuthorizedSessionExecutor';
+import {MainApi} from '../MainApi/MainApi';
+import {AuthorizedSessionExecutor, AuthorizedSessionTask} from '../AuthorizedSessionExecutor';
 import {
     getTaskInfoText,
     getTasksInfoText,
@@ -8,23 +8,31 @@ import {
     retryAttempt,
     sendErrorMessage,
     sendMessage
-} from './utils';
-import {getFilterById, getFilterByName, getFilterByStatus} from './MainApi/utils';
+} from '../utils';
+import {getFilterById, getFilterByName, getFilterByStatus} from '../MainApi/utils';
 import {
-    DELAY_BETWEEN_ATTEMPTS_TO_CHECK_TASK_RESULT,
     MAGNET_LINK_COMMAND_REG_EXP,
-    MAX_ATTEMPTS_TO_CHECK_TASK_RESULT_COUNT,
     TASK_DETAILS_COMMAND_REG_EXP,
     TASK_REMOVE_COMMAND_PREFIX,
     TASK_REMOVE_COMMAND_REG_EXP
-} from './config';
-import {ReplyTextType} from './types';
+} from '../config';
+import {ReplyTextType} from '../types';
 import {message} from 'telegraf/filters';
+import {ApplicationConfig} from './types';
 
 export class Application {
+    private readonly _delayBetweenAttemptsToCheckTaskResult: number;
+    private readonly _maxAttemptsToCheckTaskResultCount: number;
+
     constructor(
         private readonly _mainApi: MainApi,
-        private readonly _authorizedSessionExecutor: AuthorizedSessionExecutor) {
+        private readonly _authorizedSessionExecutor: AuthorizedSessionExecutor,
+        {
+            delayBetweenAttemptsToCheckTaskResult,
+            maxAttemptsToCheckTaskResultCount
+        }: ApplicationConfig) {
+        this._delayBetweenAttemptsToCheckTaskResult = delayBetweenAttemptsToCheckTaskResult;
+        this._maxAttemptsToCheckTaskResultCount = maxAttemptsToCheckTaskResultCount;
     }
 
     initializeBot(bot: Telegraf) {
@@ -64,6 +72,8 @@ export class Application {
     }
 
     private all(ctx: Context) {
+        console.log('All tasks');
+
         this.addTask(async (ctx) => {
             sendMessage(ctx, getTasksInfoText(await this._mainApi.getTasksInfo()));
         }, ctx)
@@ -90,7 +100,7 @@ export class Application {
             await this._mainApi.addTask({url: url});
 
             console.log('Get torrent name');
-            
+
             const torrentName = await getTorrentNameFromUrlAsync(url);
 
             console.log(`Torrent name: `, torrentName);
@@ -106,7 +116,7 @@ export class Application {
                     }
 
                     return false
-                }, DELAY_BETWEEN_ATTEMPTS_TO_CHECK_TASK_RESULT, MAX_ATTEMPTS_TO_CHECK_TASK_RESULT_COUNT);
+                }, this._delayBetweenAttemptsToCheckTaskResult, this._maxAttemptsToCheckTaskResultCount);
             } catch {
                 throw new Error(`For some reason task with name '${torrentName}' was not found 😕`);
             }
@@ -150,7 +160,7 @@ export class Application {
                     }
 
                     return false;
-                }, DELAY_BETWEEN_ATTEMPTS_TO_CHECK_TASK_RESULT, MAX_ATTEMPTS_TO_CHECK_TASK_RESULT_COUNT);
+                }, this._delayBetweenAttemptsToCheckTaskResult, this._maxAttemptsToCheckTaskResultCount);
             } catch {
                 throw new Error('For some reason task was not removed 😕');
             }
