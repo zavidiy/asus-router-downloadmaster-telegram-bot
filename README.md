@@ -9,7 +9,7 @@
 - Use `npm run dev` command to run in development mode;
 
 ## Build
-- Use `npm run build` to create an application; 
+- Use `npm run build` to create an application;
 
 You can use a webhook to send messages to the bot.
 ```url 
